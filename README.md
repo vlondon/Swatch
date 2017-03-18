@@ -18,6 +18,9 @@ Run project from Xcode or command line
 $ xcrun swift ./Swatch/main.swift 
 ```
 
+To run unit tests in Xcode press:
+
+`Cmd` + `Shift` + `e`
 
 ## Contributing
 
