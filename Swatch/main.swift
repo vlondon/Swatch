@@ -31,7 +31,7 @@ struct Project {
          targetName: String = "",
          testsBundleName: String = "",
          testsSuffix: String = "Tests",
-         destinationProperty: String = "platform=iOS Simulator,name=iPhone 7,OS=10.2") {
+         destinationProperty: String = "platform=iOS Simulator,name=iPhone X,OS=11.0.1") {
         
         self.path = "/Users/\(Project.ownerUsername())\(path)"
         self.name = name
@@ -135,12 +135,12 @@ class KeyLogger {
         let observer = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
         
         // App switching notification
-        NSWorkspace.shared()
-            .notificationCenter
-            .addObserver(self,
-                         selector: #selector(self.activatedApp),
-                         name: NSNotification.Name.NSWorkspaceDidActivateApplication,
-                         object: nil)
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(self.activatedApp),
+            name: NSWorkspace.didActivateApplicationNotification,
+            object: nil
+        )
         
         // Input value Call Backs
         IOHIDManagerRegisterInputValueCallback(self.manager, self.handleIOHIDInputValueCallback, observer)
@@ -157,9 +157,9 @@ class KeyLogger {
         RunLoop.current.run()
     }
     
-    dynamic func activatedApp(notification: NSNotification) {
+    @objc dynamic func activatedApp(notification: NSNotification) {
         if let info = notification.userInfo,
-            let app = info[NSWorkspaceApplicationKey] as? NSRunningApplication,
+            let app = info[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
             let name = app.localizedName {
             self.activeAppName = App.init(rawValue: name) ?? .unknown
         }
