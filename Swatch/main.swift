@@ -31,7 +31,7 @@ struct Project {
          targetName: String = "",
          testsBundleName: String = "",
          testsSuffix: String = "Tests",
-         destinationProperty: String = "platform=iOS Simulator,name=iPhone X,OS=11.0.1") {
+         destinationProperty: String = "platform=iOS Simulator,name=iPhone X,OS=12.1") {
         
         self.path = "/Users/\(Project.ownerUsername())\(path)"
         self.name = name
@@ -122,6 +122,8 @@ class KeyLogger {
     init(with project: Project, daemon: Daemon) {
         self.project = project
         self.daemon = daemon
+        
+        daemon.buildTests = self.buildTests
     }
     
     func start() {
@@ -161,6 +163,7 @@ class KeyLogger {
         if let info = notification.userInfo,
             let app = info[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
             let name = app.localizedName {
+            
             self.activeAppName = App.init(rawValue: name) ?? .unknown
         }
     }
@@ -176,6 +179,7 @@ class KeyLogger {
     }
     
     let handleIOHIDInputValueCallback: IOHIDValueCallback = { context, result, sender, device in
+        print("aaaaaa")
         let `self` = Unmanaged<KeyLogger>.fromOpaque(context!).takeUnretainedValue()
         let elem = IOHIDValueGetElement(device)
         
@@ -198,27 +202,33 @@ class KeyLogger {
             self.altPressed = pressed
         }
         
+//        if scancode == 8 { // "e"
+        print("- scancode: ", scancode)
         if scancode == 8 { // "e"
             self.actionPressed = pressed
         }
         
         if self.shiftPressed && self.altPressed && self.actionPressed {
+            self.buildTests()
+        }
+    }
+    
+    func buildTests() {
+        if !self.daemon.filesChanged.isEmpty {
             var args: [String] = ["xcodebuild", "test", "-workspace", self.project.fullName(), "-scheme", self.project.targetName, "-destination", self.project.destinationProperty]
             
-            if !self.daemon.filesChanged.isEmpty {
-                self.daemon.filesChanged.forEach() { filePath in
-                    var fileName = NSURL(fileURLWithPath: filePath).lastPathComponent!
-                    fileName = fileName.replacingOccurrences(of: ".swift", with: "")
-                    args.append("-only-testing:\(self.project.testsBundleName)/\(fileName)\(self.project.testsSuffix)")
-                }
-                self.daemon.resetFilesChanged()
-                
-                Process.launchedProcess(launchPath: "/usr/bin/osascript", arguments: ["-e", "display notification \"Running unit tests..\""])
-                print("\n\nRunning unit tests..\nargs: \(args)\n\n")
-                shell(path: self.project.fullPath(), args: args)
-            } else {
-                print("No reason of running tests, no files changed")
+            self.daemon.filesChanged.forEach() { filePath in
+                var fileName = NSURL(fileURLWithPath: filePath).lastPathComponent!
+                fileName = fileName.replacingOccurrences(of: ".swift", with: "")
+                args.append("-only-testing:\(self.project.testsBundleName)/\(fileName)\(self.project.testsSuffix)")
             }
+            self.daemon.resetFilesChanged()
+            
+            Process.launchedProcess(launchPath: "/usr/bin/osascript", arguments: ["-e", "display notification \"Running unit tests..\""])
+            print("\n\nRunning unit tests..\nargs: \(args)\n\n")
+            shell(path: self.project.fullPath(), args: args)
+        } else {
+            print("No reason of running tests, no files changed")
         }
     }
 }
@@ -399,6 +409,8 @@ class Daemon {
     
     var project: Project
     
+    var buildTests: () -> Void = {}
+    
     init(with project: Project) {
         self.project = project
         
@@ -417,7 +429,8 @@ class Daemon {
                 break
             case .updated(_):
                 self.filesChanged.insert(path)
-                print("\nself.filesChanged: \(self.filesChanged)")
+                print("\nFiles changed: \(self.filesChanged)")
+                self.buildTests()
             }
         }
     }
@@ -448,7 +461,8 @@ class Daemon {
  init it like this: Project(path: "/dev/ios/", name: "ProjectName")
  */
 
-let project = Project(path: "/dev/ios/", name: "Workouts")
+// let project = Project(path: "/dev/ios/", name: "Workouts")
+let project = Project(path: "/dev-ios/", name: "stickers")
 
 let daemon = Daemon(with: project)
 let keylogger = KeyLogger(with: project, daemon: daemon)
